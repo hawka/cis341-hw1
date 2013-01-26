@@ -1,5 +1,6 @@
 Team Members:
-  <pennkey>	<name>		<email>
+	hawka		Amalia Hawkins		hawka@seas.upenn.edu
+  kyleh		Kyle Hardgrave		kyleh@seas.upenn.edu
 
 
 Known issues with your implementation:
