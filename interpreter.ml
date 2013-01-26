@@ -48,9 +48,9 @@ let mem_bot : int32 =               (* First addressable memory location *)
    does not map or if the address is unaligned. 
 *)
 let map_addr (addr:int32) : int =
-	let addr_i : int = Int32.to_int addr in
-	if (addr <=@ mem_top) && (addr >=@ mem_bot) && addr_i mod 4 = 0 then
-		addr_i / 4
+	let addr_i : int = Int32.to_int (addr -@ 0xfffff000l) in
+	if (addr <=@ mem_top) && (addr >=@ (mem_top +@ mem_bot)) && addr_i mod 4 = 0 then
+		(addr_i / 4)
 	else
 		raise (X86_segmentation_fault "Invalid memory address")
 
