@@ -100,10 +100,54 @@ let get_bit bitidx n =
   let shb = Int32.shift_left 1l bitidx in
   Int32.logand shb n = shb  
 
+module LblMap = Map.Make(struct type t = lbl let compare = compare end)
 
+let rec mk_lbl_map (code:insn_block list) : insn_block LblMap.t =
+	begin match code with
+	| []   -> LblMap.empty
+	| h::t -> LblMap.add (h.label) h (mk_lbl_map t)
+	end
+
+let ind_of_reg (r:reg) : int =
+	begin match r with
+		| Eax -> 0 | Ebx -> 1 | Ecx -> 2 | Edx -> 3
+		| Esi -> 4 | Edi -> 5 | Ebp -> 6 | Esp -> 7
+	end
+
+
+
+let get_opnd_val (xs:x86_state) (o:opnd) : int32 =
+	begin match o with
+	| Lbl _ -> raise Label_value "Tried to get the value of a label"
+	| Imm i -> i
+	| Reg r -> Array.get xs.s_reg (ind_of_reg r)
+	| Ind i -> failwith "TODO" (* TODO *)
+	end
+
+let set_opnd_val (xs:x86_state) (o:opnd) (v:int) : x86_state =
+	begin match o with
+	| Lbl _ -> raise Label_value "Tried to set the value of a label"
+	| Imm i -> raise Immediate_value "Tried to set the value of a label"
+	| Reg r -> Array.set xs.s_reg (ind_of_reg r) v
+	| Ind i -> failwith "TODO" (* TODO *)
+	end
+
+let set_cnd_flags (xs:x86_state) (ob:bool) (os:bool) (oz:bool) : x86_state =
+	xs.s_OF <- ob;
+	xs.s_SF <- sb;
+	xs.s_ZF <- zb;
+	xs
+
+
+let rec find_lbl (lbl_map:insn_block LblMap.t) (l:lbl) : unit =
+	(* find the mapped insn_block.insn_list for lbl l in lbl_map *)
+  (* run helper function to deal with contents of insn_block and give us 
+  the last insn which should be jump or ret. if not, EXCEPTION *)
+  (* parse that.. if ret, ret up. if jmp, call find_lbl lbl_map newlabel *)
 
 let interpret (code:insn_block list) (xs:x86_state) (l:lbl) : unit =
-failwith "unimplemented"
+	let lbl_map = mk_lbl_map code in
+	
 
       
 let run (code:insn_block list) : int32 =
