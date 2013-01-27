@@ -40,7 +40,7 @@ let get_register_id = function
 let mem_size = 1024                 (* Size of memory in words *)
 let mem_top : int32 = 0xfffffffcl   (* Last addressable memory location *)
 let mem_bot : int32 =               (* First addressable memory location *)
-	  (Int32.of_int (mem_size * 4)) *@ (-1l)
+    (Int32.of_int (mem_size * 4)) *@ (-1l)
 
 (* 
    Maps virtual addresses (int32 addresses) to physical addresses (int indices). 
@@ -48,11 +48,11 @@ let mem_bot : int32 =               (* First addressable memory location *)
    does not map or if the address is unaligned. 
 *)
 let map_addr (addr:int32) : int =
-	let addr_i : int = Int32.to_int (addr -@ 0xfffff000l) in
-	if (addr <=@ mem_top) && (addr >=@ (mem_top +@ mem_bot)) && addr_i mod 4 = 0 then
-		(addr_i / 4)
-	else
-		raise (X86_segmentation_fault "Invalid memory address")
+  let addr_i : int = Int32.to_int (addr -@ 0xfffff000l) in
+  if (addr <=@ mem_top) && (addr >=@ (mem_top +@ mem_bot)) && addr_i mod 4 = 0 then
+    (addr_i / 4)
+  else
+    raise (X86_segmentation_fault "Invalid memory address")
 
 type x86_state = {
     s_mem : int32 array;    (* 1024 32-bit words -- the heap *)
@@ -85,14 +85,14 @@ let print_state (xs:x86_state) : unit =
    applies in the x86 state xs. *)  
 let condition_matches (xs:x86_state) (c:X86.cnd) : bool =
   begin match c with 
-    | Sgt -> not (xs.s_SF <> xs.s_OF || xs.s_ZF)
-    | Sge -> (xs.s_SF = xs.s_OF)
-    | Slt -> (xs.s_SF <> xs.s_OF)
-    | Sle -> (xs.s_SF <> xs.s_OF || xs.s_ZF)
-    | Eq -> xs.s_ZF
-    | NotEq -> not xs.s_ZF
-    | Zero -> xs.s_ZF
-    | NotZero -> not xs.s_ZF
+  | Sgt -> not (xs.s_SF <> xs.s_OF || xs.s_ZF)
+  | Sge -> (xs.s_SF = xs.s_OF)
+  | Slt -> (xs.s_SF <> xs.s_OF)
+  | Sle -> (xs.s_SF <> xs.s_OF || xs.s_ZF)
+  | Eq -> xs.s_ZF
+  | NotEq -> not xs.s_ZF
+  | Zero -> xs.s_ZF
+  | NotZero -> not xs.s_ZF
   end
 
 (* Returns the bit at a given index in a 32-bit word as a boolean *)
@@ -103,51 +103,80 @@ let get_bit bitidx n =
 module LblMap = Map.Make(struct type t = lbl let compare = compare end)
 
 let rec mk_lbl_map (code:insn_block list) : insn_block LblMap.t =
-	begin match code with
-	| []   -> LblMap.empty
-	| h::t -> LblMap.add (h.label) h (mk_lbl_map t)
-	end
+  begin match code with
+  | []   -> LblMap.empty
+  | h::t -> LblMap.add (h.label) h (mk_lbl_map t)
+  end
 
 let ind_of_reg (r:reg) : int =
-	begin match r with
-		| Eax -> 0 | Ebx -> 1 | Ecx -> 2 | Edx -> 3
-		| Esi -> 4 | Edi -> 5 | Ebp -> 6 | Esp -> 7
-	end
+  begin match r with
+  | Eax -> 0 | Ebx -> 1 | Ecx -> 2 | Edx -> 3
+  | Esi -> 4 | Edi -> 5 | Ebp -> 6 | Esp -> 7
+  end
 
 
 
 let get_opnd_val (xs:x86_state) (o:opnd) : int32 =
-	begin match o with
-	| Lbl _ -> raise Label_value "Tried to get the value of a label"
-	| Imm i -> i
-	| Reg r -> Array.get xs.s_reg (ind_of_reg r)
-	| Ind i -> failwith "TODO" (* TODO *)
-	end
+  begin match o with
+  | Lbl _ -> raise Label_value "Tried to get the value of a label"
+  | Imm i -> i
+  | Reg r -> Array.get xs.s_reg (ind_of_reg r)
+  | Ind i -> failwith "TODO" (* TODO *)
+  end
 
 let set_opnd_val (xs:x86_state) (o:opnd) (v:int) : x86_state =
-	begin match o with
-	| Lbl _ -> raise Label_value "Tried to set the value of a label"
-	| Imm i -> raise Immediate_value "Tried to set the value of a label"
-	| Reg r -> Array.set xs.s_reg (ind_of_reg r) v
-	| Ind i -> failwith "TODO" (* TODO *)
-	end
+  begin match o with
+  | Lbl _ -> raise Label_value "Tried to set the value of a label"
+  | Imm i -> raise Immediate_value "Tried to set the value of a label"
+  | Reg r -> Array.set xs.s_reg (ind_of_reg r) v
+  | Ind i -> failwith "TODO" (* TODO *)
+  end
 
 let set_cnd_flags (xs:x86_state) (ob:bool) (os:bool) (oz:bool) : x86_state =
-	xs.s_OF <- ob;
-	xs.s_SF <- sb;
-	xs.s_ZF <- zb;
-	xs
+  xs.s_OF <- ob;
+  xs.s_SF <- sb;
+  xs.s_ZF <- zb;
+  xs
 
+(* TODO deal with setting condition codes? *)
+let interpret_insn (xs:x86_state) (i:insn) : x86_state =
+  begin match i with
+  (* arithmetic *)
+  | Neg d -> let v = (int32.neg (get_opnd_val xs d)) in 
+    set_opnd_val xs d1 v 
+  | Add d s -> failwith "TODO"
+  | Sub d s -> failwith "TODO"
+  | Imul d s -> (* d1 must be a register *) failwith "TODO"
+  (* logic *)
+  | Not d -> let v = (int32.lognot (get_opnd_val xs d)) in
+    set_opnd_val xs d v
+  | And d s -> let v = (int32.logand (get_opnd_val xs d) (get_opnd_val xs s)) in
+    set_opnd_val xs d v
+  | Or d s -> let v = (int32.logor (get_opnd_val xs d) (get_opnd_val xs s)) in
+    set_opnd_val xs d v
+  | Xor d s -> let v = (int32.logxor (get_opnd_val xs d) (get_opnd_val xs s)) in
+    set_opnd_val xs d v
+  (* bitmanip *)
+  | Sar d amt -> let v = (int32.shift_right (get_opnd_val xs d) (get_opnd_val xs amt)) in
+    set_opnd_val xs d v
+  | Shl d amt -> let v = (int32.shift_left (get_opnd_val xs d) (get_opnd_val xs amt)) in
+    set_opnd_val xs d v
+  | Shr d amt -> let v = (int32.shift_right_logical (get_opnd_val xs d) (get_opnd_val xs amt)) in
+    set_opnd_val xs d v
+  | Setb d cc -> failwith "TODO"
+  (* datamove *)
+  (* controlflow & conds *)
+  end
 
 let rec find_lbl (lbl_map:insn_block LblMap.t) (l:lbl) : unit =
-	(* find the mapped insn_block.insn_list for lbl l in lbl_map *)
+  (* find the mapped insn_block.insn_list for lbl l in lbl_map *)
   (* run helper function to deal with contents of insn_block and give us 
   the last insn which should be jump or ret. if not, EXCEPTION *)
   (* parse that.. if ret, ret up. if jmp, call find_lbl lbl_map newlabel *)
 
 let interpret (code:insn_block list) (xs:x86_state) (l:lbl) : unit =
-	let lbl_map = mk_lbl_map code in
-	
+  let lbl_map = mk_lbl_map code in
+  
 
       
 let run (code:insn_block list) : int32 =
