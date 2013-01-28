@@ -200,9 +200,18 @@ let interpret_insn (xs:x86_state) (i:insn) : x86_state =
                       then (apply_op Int32.logor d (Imm 1l) xs) 
                    else if ((get_bit 31 (get_opnd_val xs d)))
                            then (apply_op Int32.logxor d (Imm 1l) xs)
-                        else xs
+                        else xs (* TODO - put apply_op so condition codes are set? *)
   (* datamove *) 
+  | Lea(d, ind) -> xs (* TODO *)
+  | Mov(d, s)   -> xs (* TODO *)
+  | Push(s)     -> xs (* TODO *)
+  | Pop(d)      -> xs (* TODO *)
   (* controlflow & conds *)
+  | Cmp(s1, s2) -> xs (* TODO *)
+  | Jmp(s)      -> xs (* TODO *)
+  | Call(s)     -> xs (* TODO *)
+  | Ret         -> xs (* TODO *)
+  | J(cc, clbl) -> xs (* TODO *)
   end
 
 
