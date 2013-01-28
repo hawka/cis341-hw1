@@ -117,14 +117,28 @@ let ind_of_reg (r:reg) : int =
   | Esi -> 4 | Edi -> 5 | Ebp -> 6 | Esp -> 7
   end
 
-
+let compute_indirect (xs:x86_state) (i:ind) : int =
+  let base = 
+    match i.i_base with
+    | Some r -> (Array.get xs.s_reg (ind_of_reg r))
+    | None   -> 0l
+  and ind_scale = 
+    match i.i_iscl with
+    | Some (r, s) -> ((Array.get xs.s_reg (ind_of_reg r)) *@ s)
+    | None        -> 0l
+  and disp = 
+    match i.i_disp with
+    | Some(DImm x) -> x
+    | Some(DLbl l) -> raise (Label_value "Tried to pass a label as displacement in indirect address")
+    | None         -> 0l
+  in (map_addr (base +@ ind_scale +@ disp))
 
 let get_opnd_val (xs:x86_state) (o:opnd) : int32 =
   begin match o with
   | Lbl _ -> raise (Label_value "Tried to get the value of a label")
   | Imm i -> i
   | Reg r -> Array.get xs.s_reg (ind_of_reg r)
-  | Ind i -> failwith "TODO" (* TODO *)
+  | Ind i -> Array.get xs.s_mem (compute_indirect xs i)
   end
 
 let set_opnd_val (xs:x86_state) (o:opnd) (v:int32) : x86_state =
@@ -132,7 +146,7 @@ let set_opnd_val (xs:x86_state) (o:opnd) (v:int32) : x86_state =
   | Lbl _ -> raise (Label_value "Tried to set the value of a label")
   | Imm i -> raise (Immediate_value "Tried to set the value of an immediate")
   | Reg r -> Array.set xs.s_reg (ind_of_reg r) v; xs
-  | Ind i -> failwith "TODO" (* TODO *)
+  | Ind i -> Array.set xs.s_mem (compute_indirect xs i) v; xs
   end
 
 let set_cnd_flags (xs:x86_state) (ob:bool) (os:bool) (oz:bool) : x86_state =
@@ -145,7 +159,7 @@ let apply_op (op:int32 -> int32 -> int32) (s:opnd) (d:opnd) (xs:x86_state) =
 	set_opnd_val xs d (op (get_opnd_val xs d) (get_opnd_val xs s))
 
 let apply_shift (op:int32 -> int -> int32) (d:opnd) (amt:opnd) (xs:x86_state) =
-		set_opnd_val xs d (op (get_opnd_val xs d) (Int32.to_int (get_opnd_val xs amt)))
+	set_opnd_val xs d (op (get_opnd_val xs d) (Int32.to_int (get_opnd_val xs amt)))
 
 (* TODO deal with setting condition codes? *)
 let interpret_insn (xs:x86_state) (i:insn) : x86_state =
