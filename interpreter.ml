@@ -135,17 +135,26 @@ let set_opnd_val (xs:x86_state) (o:opnd) (v:int32) : x86_state =
   | Ind i -> failwith "TODO" (* TODO *)
   end
 
-let set_cnd_flags (xs:x86_state) (ob:bool) (os:bool) (oz:bool) : x86_state =
-  xs.s_OF <- ob;
-  xs.s_SF <- ob;
+let set_cnd_flags (xs:x86_state) (oo:bool) (os:bool) (oz:bool) : x86_state =
+  xs.s_OF <- oo;
+  xs.s_SF <- os;
   xs.s_ZF <- oz;
   xs
 
-let apply_op (op:int32 -> int32 -> int32) (s:opnd) (d:opnd) (xs:x86_state) =
-	set_opnd_val xs d (op (get_opnd_val xs d) (get_opnd_val xs s))
+let set_flags_by_val (xs:x86_state) (v:int32) (o:bool) : x86_state =
+	xs.s_OF <- o;
+	xs.s_SF <- get_bit 31 v;
+	xs.s_ZF <- v = Int32.zero;
+	xs
 
+(* Apply a binary Int32 opearation from a source to destination registers. *)
+let apply_op (op:int32 -> int32 -> int32) (s:opnd) (d:opnd) (xs:x86_state) =
+	let v = op (get_opnd_val xs d) (get_opnd_val xs s) in
+	set_opnd_val (set_flags_by_val xs v (false)) d v
+
+(* Apply an Int32 shift opearation from a source to destination registers. *)
 let apply_shift (op:int32 -> int -> int32) (d:opnd) (amt:opnd) (xs:x86_state) =
-		set_opnd_val xs d (op (get_opnd_val xs d) (Int32.to_int (get_opnd_val xs amt)))
+	set_opnd_val xs d (op (get_opnd_val xs d) (Int32.to_int (get_opnd_val xs amt)))
 
 (* TODO deal with setting condition codes? *)
 let interpret_insn (xs:x86_state) (i:insn) : x86_state =
