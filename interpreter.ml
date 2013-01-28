@@ -16,6 +16,9 @@ let (<@@) a b = (Int64.compare a b) < 0
 
 exception X86_segmentation_fault of string
 
+exception Label_value of string
+exception Immediate_value of string
+
 (* Interpret the registers as indices into the register file array *)
 let eaxi = 0
 let ebxi = 1
@@ -118,53 +121,51 @@ let ind_of_reg (r:reg) : int =
 
 let get_opnd_val (xs:x86_state) (o:opnd) : int32 =
   begin match o with
-  | Lbl _ -> raise Label_value "Tried to get the value of a label"
+  | Lbl _ -> raise (Label_value "Tried to get the value of a label")
   | Imm i -> i
   | Reg r -> Array.get xs.s_reg (ind_of_reg r)
   | Ind i -> failwith "TODO" (* TODO *)
   end
 
-let set_opnd_val (xs:x86_state) (o:opnd) (v:int) : x86_state =
+let set_opnd_val (xs:x86_state) (o:opnd) (v:int32) : x86_state =
   begin match o with
-  | Lbl _ -> raise Label_value "Tried to set the value of a label"
-  | Imm i -> raise Immediate_value "Tried to set the value of a label"
-  | Reg r -> Array.set xs.s_reg (ind_of_reg r) v
+  | Lbl _ -> raise (Label_value "Tried to set the value of a label")
+  | Imm i -> raise (Immediate_value "Tried to set the value of an immediate")
+  | Reg r -> Array.set xs.s_reg (ind_of_reg r) v; xs
   | Ind i -> failwith "TODO" (* TODO *)
   end
 
 let set_cnd_flags (xs:x86_state) (ob:bool) (os:bool) (oz:bool) : x86_state =
   xs.s_OF <- ob;
-  xs.s_SF <- sb;
-  xs.s_ZF <- zb;
+  xs.s_SF <- ob;
+  xs.s_ZF <- oz;
   xs
+
+let apply_op (op:int32 -> int32 -> int32) (s:opnd) (d:opnd) (xs:x86_state) =
+	set_opnd_val xs d (op (get_opnd_val xs d) (get_opnd_val xs s))
+
+let apply_shift (op:int32 -> int -> int32) (d:opnd) (amt:opnd) (xs:x86_state) =
+		set_opnd_val xs d (op (get_opnd_val xs d) (Int32.to_int (get_opnd_val xs amt)))
 
 (* TODO deal with setting condition codes? *)
 let interpret_insn (xs:x86_state) (i:insn) : x86_state =
   begin match i with
   (* arithmetic *)
-  | Neg d -> let v = (int32.neg (get_opnd_val xs d)) in 
-    set_opnd_val xs d1 v 
-  | Add d s -> failwith "TODO"
-  | Sub d s -> failwith "TODO"
-  | Imul d s -> (* d1 must be a register *) failwith "TODO"
+  | Neg(d)     -> set_opnd_val xs d (Int32.neg (get_opnd_val xs d))
+  | Add(d, s)  -> xs (* TODO *)
+  | Sub(d, s)  -> xs (* TODO *)
+  | Imul(d, s) -> (* d1 must be a register *) (* "TODO" *) xs
   (* logic *)
-  | Not d -> let v = (int32.lognot (get_opnd_val xs d)) in
-    set_opnd_val xs d v
-  | And d s -> let v = (int32.logand (get_opnd_val xs d) (get_opnd_val xs s)) in
-    set_opnd_val xs d v
-  | Or d s -> let v = (int32.logor (get_opnd_val xs d) (get_opnd_val xs s)) in
-    set_opnd_val xs d v
-  | Xor d s -> let v = (int32.logxor (get_opnd_val xs d) (get_opnd_val xs s)) in
-    set_opnd_val xs d v
+  | Not(d)    -> set_opnd_val xs d (Int32.lognot (get_opnd_val xs d))
+  | And(d, s) -> apply_op Int32.logand s d xs
+  | Or(d, s)  -> apply_op Int32.logor s d xs
+  | Xor(d, s) -> apply_op Int32.logxor s d xs
   (* bitmanip *)
-  | Sar d amt -> let v = (int32.shift_right (get_opnd_val xs d) (get_opnd_val xs amt)) in
-    set_opnd_val xs d v
-  | Shl d amt -> let v = (int32.shift_left (get_opnd_val xs d) (get_opnd_val xs amt)) in
-    set_opnd_val xs d v
-  | Shr d amt -> let v = (int32.shift_right_logical (get_opnd_val xs d) (get_opnd_val xs amt)) in
-    set_opnd_val xs d v
-  | Setb d cc -> failwith "TODO"
-  (* datamove *)
+  | Sar(d, amt) -> apply_shift Int32.shift_right d amt xs
+  | Shl(d, amt) -> apply_shift Int32.shift_left d amt xs
+  | Shr(d, amt) -> apply_shift Int32.shift_right_logical d amt xs
+  | Setb(d, cc) -> (* TODO *) xs
+  (* datamove *) 
   (* controlflow & conds *)
   end
 
@@ -173,9 +174,11 @@ let rec find_lbl (lbl_map:insn_block LblMap.t) (l:lbl) : unit =
   (* run helper function to deal with contents of insn_block and give us 
   the last insn which should be jump or ret. if not, EXCEPTION *)
   (* parse that.. if ret, ret up. if jmp, call find_lbl lbl_map newlabel *)
+	failwith "TODO"
 
 let interpret (code:insn_block list) (xs:x86_state) (l:lbl) : unit =
-  let lbl_map = mk_lbl_map code in
+(*  let lbl_map = mk_lbl_map code in*)
+	failwith "TODO"
   
 
       
