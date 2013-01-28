@@ -98,19 +98,24 @@ let condition_matches (xs:x86_state) (c:X86.cnd) : bool =
   | NotZero -> not xs.s_ZF
   end
 
+
 (* Returns the bit at a given index in a 32-bit word as a boolean *)
 let get_bit bitidx n =
   let shb = Int32.shift_left 1l bitidx in
   Int32.logand shb n = shb  
 
+
 module LblMap = Map.Make(struct type t = lbl let compare = compare end)
 
+(* Make a label. *)
 let rec mk_lbl_map (code:insn_block list) : insn_block LblMap.t =
   begin match code with
   | []   -> LblMap.empty
   | h::t -> LblMap.add (h.label) h (mk_lbl_map t)
   end
 
+
+(* The index of a register. *)
 let ind_of_reg (r:reg) : int =
   begin match r with
   | Eax -> 0 | Ebx -> 1 | Ecx -> 2 | Edx -> 3
@@ -118,7 +123,7 @@ let ind_of_reg (r:reg) : int =
   end
 
 
-
+(* Get the relevant Int32 value from an operand. *)
 let get_opnd_val (xs:x86_state) (o:opnd) : int32 =
   begin match o with
   | Lbl _ -> raise (Label_value "Tried to get the value of a label")
@@ -127,6 +132,8 @@ let get_opnd_val (xs:x86_state) (o:opnd) : int32 =
   | Ind i -> failwith "TODO" (* TODO *)
   end
 
+
+(* Set the relevant Int32 value from an operand. *)
 let set_opnd_val (xs:x86_state) (o:opnd) (v:int32) : x86_state =
   begin match o with
   | Lbl _ -> raise (Label_value "Tried to set the value of a label")
@@ -135,26 +142,25 @@ let set_opnd_val (xs:x86_state) (o:opnd) (v:int32) : x86_state =
   | Ind i -> failwith "TODO" (* TODO *)
   end
 
-let set_cnd_flags (xs:x86_state) (oo:bool) (os:bool) (oz:bool) : x86_state =
-  xs.s_OF <- oo;
-  xs.s_SF <- os;
-  xs.s_ZF <- oz;
+
+(* Set the condition flags by value. *)
+let set_cnd_flags (xs:x86_state) (v:int32) (o:bool) : x86_state =
+  xs.s_OF <- o;
+  xs.s_SF <- get_bit 31 v;
+  xs.s_ZF <- v = Int32.zero;
   xs
 
-let set_flags_by_val (xs:x86_state) (v:int32) (o:bool) : x86_state =
-	xs.s_OF <- o;
-	xs.s_SF <- get_bit 31 v;
-	xs.s_ZF <- v = Int32.zero;
-	xs
 
 (* Apply a binary Int32 opearation from a source to destination registers. *)
 let apply_op (op:int32 -> int32 -> int32) (s:opnd) (d:opnd) (xs:x86_state) =
 	let v = op (get_opnd_val xs d) (get_opnd_val xs s) in
-	set_opnd_val (set_flags_by_val xs v (false)) d v
+	set_opnd_val (set_flags_by_val xs v false) d v
+
 
 (* Apply an Int32 shift opearation from a source to destination registers. *)
 let apply_shift (op:int32 -> int -> int32) (d:opnd) (amt:opnd) (xs:x86_state) =
 	set_opnd_val xs d (op (get_opnd_val xs d) (Int32.to_int (get_opnd_val xs amt)))
+
 
 (* TODO deal with setting condition codes? *)
 let interpret_insn (xs:x86_state) (i:insn) : x86_state =
@@ -177,6 +183,7 @@ let interpret_insn (xs:x86_state) (i:insn) : x86_state =
   (* datamove *) 
   (* controlflow & conds *)
   end
+
 
 let rec find_lbl (lbl_map:insn_block LblMap.t) (l:lbl) : unit =
   (* find the mapped insn_block.insn_list for lbl l in lbl_map *)
