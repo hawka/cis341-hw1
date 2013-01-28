@@ -196,7 +196,11 @@ let interpret_insn (xs:x86_state) (i:insn) : x86_state =
   | Sar(d, amt) -> apply_shift Int32.shift_right d amt xs
   | Shl(d, amt) -> apply_shift Int32.shift_left d amt xs
   | Shr(d, amt) -> apply_shift Int32.shift_right_logical d amt xs
-  | Setb(d, cc) -> (* TODO *) xs
+  | Setb(d, cc) -> if (condition_matches xs cc) 
+                      then (apply_op Int32.logor d (Imm 1l) xs) 
+                   else if ((get_bit 31 (get_opnd_val xs d)))
+                           then (apply_op Int32.logxor d (Imm 1l) xs)
+                        else xs
   (* datamove *) 
   (* controlflow & conds *)
   end
