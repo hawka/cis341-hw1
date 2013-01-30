@@ -123,7 +123,7 @@ let ind_of_reg (r:reg) : int =
   end
 
 
-let compute_indirect (xs:x86_state) (i:ind) : int =
+let compute_indirect (xs:x86_state) (i:ind) : int32 =
   let base = 
     match i.i_base with
     | Some r -> (Array.get xs.s_reg (ind_of_reg r))
@@ -137,7 +137,7 @@ let compute_indirect (xs:x86_state) (i:ind) : int =
     | Some(DImm x) -> x
     | Some(DLbl l) -> raise (Label_value "Tried to pass a label as displacement in indirect address")
     | None         -> 0l
-  in (map_addr (base +@ ind_scale +@ disp))
+  in (base +@ ind_scale +@ disp)
 
 
 (* Get the relevant Int32 value from an operand. *)
@@ -146,7 +146,7 @@ let get_opnd_val (xs:x86_state) (o:opnd) : int32 =
   | Lbl _ -> raise (Label_value "Tried to get the value of a label")
   | Imm i -> i
   | Reg r -> Array.get xs.s_reg (ind_of_reg r)
-  | Ind i -> Array.get xs.s_mem (compute_indirect xs i)
+  | Ind i -> Array.get xs.s_mem (map_addr (compute_indirect xs i))
   end
 
 
@@ -156,7 +156,7 @@ let set_opnd_val (xs:x86_state) (o:opnd) (v:int32) : x86_state =
   | Lbl _ -> raise (Label_value "Tried to set the value of a label")
   | Imm i -> raise (Immediate_value "Tried to set the value of an immediate")
   | Reg r -> Array.set xs.s_reg (ind_of_reg r) v; xs
-  | Ind i -> Array.set xs.s_mem (compute_indirect xs i) v; xs
+  | Ind i -> Array.set xs.s_mem (map_addr (compute_indirect xs i)) v; xs
   end
 
 
@@ -202,15 +202,23 @@ let interpret_insn (xs:x86_state) (i:insn) : x86_state =
                            then (apply_op Int32.logxor d (Imm 1l) xs)
                         else xs (* TODO - put apply_op so condition codes are set? *)
   (* datamove *) 
-  | Lea(d, ind) -> xs (* TODO *)
-  | Mov(d, s)   -> xs (* TODO *)
-  | Push(s)     -> xs (* TODO *)
-  | Pop(d)      -> xs (* TODO *)
+  | Lea(d, ind) -> let addr = (compute_indirect xs ind) in
+                    (set_opnd_val xs (Reg d) addr)
+  | Mov(d, s)   -> set_opnd_val xs d (get_opnd_val xs s)
+  | Push(s)     -> let new_esp = ((get_opnd_val xs (Reg Esp)) -@ 4l) 
+                   and v = (get_opnd_val xs s) in
+                     Array.set xs.s_mem (map_addr new_esp) v;
+                     set_opnd_val xs (Reg Esp) new_esp
+  | Pop(d)      -> let old_esp = (get_opnd_val xs (Reg Esp)) in
+                     let new_esp = (old_esp +@ 4l)
+                     and v = (Array.get xs.s_mem (map_addr old_esp)) in
+                       set_opnd_val xs (Reg Esp) new_esp;
+                       set_opnd_val xs d v
   (* controlflow & conds *)
   | Cmp(s1, s2) -> xs (* TODO *)
   | Jmp(s)      -> xs (* TODO *)
   | Call(s)     -> xs (* TODO *)
-  | Ret         -> xs (* TODO *)
+  | Ret         -> xs (* TODO *) 
   | J(cc, clbl) -> xs (* TODO *)
   end
 
