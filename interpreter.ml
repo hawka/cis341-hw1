@@ -145,7 +145,7 @@ let get_reg_val (xs:x86_state) (r:reg) : int32 =
 	Array.get xs.s_reg (ind_of_reg r)
 
 (* Set the relevant Int32 value from a register. *)
-let set_reg_val (xs:x86_state) (r:reg) : x86_state =
+let set_reg_val (xs:x86_state) (r:reg) (v:int32): x86_state =
 	Array.set xs.s_reg (ind_of_reg r) v; xs
 
 (* Get the relevant Int32 value from an operand. *)
@@ -159,11 +159,11 @@ let get_opnd_val (xs:x86_state) (o:opnd) : int32 =
 
 
 (* Set the relevant Int32 value from an operand. *)
-let set_opnd_val (xs:x86_state) (o:opnd) (v:int32) : () =
+let set_opnd_val (xs:x86_state) (o:opnd) (v:int32) : x86_state =
   begin match o with
   | Lbl _ -> raise (Label_value "Tried to set the value of a label")
   | Imm i -> raise (Immediate_value "Tried to set the value of an immediate")
-  | Reg r -> set_reg_val xs r
+  | Reg r -> set_reg_val xs r v
   | Ind i -> Array.set xs.s_mem (compute_indirect xs i) v; xs
   end
 
@@ -198,6 +198,10 @@ let int32_of_op (op:int64 -> int64 -> int64) (x:int64) (y:int64) : int32 =
 (* Return if a 64-bit integer is negative. *)
 let is_neg (x:int64) : bool = Int64.compare x (Int64.zero) < 0
 
+(* Return (NOT XOR) AND (XOR). *)
+(*let both_neither (b1:bool * bool) (b2:bool * bool) : bool =
+	match (b1, b2) with ((b1a, b1b), (b2a, b2b)) ->*)
+
 (* TODO deal with setting condition codes? *)
 let interpret_insn (xs:x86_state) (i:insn) : x86_state =
   begin match i with
@@ -227,8 +231,8 @@ let interpret_insn (xs:x86_state) (i:insn) : x86_state =
 									let r64 = Int64.mul d64 s64 in
 									let r32 = Int64.to_int32 r64 in
 									let o_flag = Int64.of_int32 r32 = r64 in
-									let xs' = set_cnd_flags xs r32 o_flag
-									set_opnd_val xs' d r32
+									let xs' = set_cnd_flags xs r32 o_flag in
+									set_reg_val xs' d r32
 
   (* logic *)
   | Not(d)    -> set_opnd_val xs d (Int32.lognot (get_opnd_val xs d))
