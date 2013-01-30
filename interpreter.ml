@@ -151,7 +151,7 @@ let get_opnd_val (xs:x86_state) (o:opnd) : int32 =
 
 
 (* Set the relevant Int32 value from an operand. *)
-let set_opnd_val (xs:x86_state) (o:opnd) (v:int32) : () =
+let set_opnd_val (xs:x86_state) (o:opnd) (v:int32) : x86_state =
   begin match o with
   | Lbl _ -> raise (Label_value "Tried to set the value of a label")
   | Imm i -> raise (Immediate_value "Tried to set the value of an immediate")
@@ -169,14 +169,23 @@ let set_cnd_flags (xs:x86_state) (v:int32) (o:bool) : x86_state =
 
 
 (* Apply a binary Int32 opearation from a source to destination registers. *)
-let apply_op (op:int32 -> int32 -> int32) (s:opnd) (d:opnd) (xs:x86_state) =
+let apply_op (op:int32 -> int32 -> int32) (s:opnd) (d:opnd) (n_OF:bool) (xs:x86_state) =
 	let v = op (get_opnd_val xs d) (get_opnd_val xs s) in
-	set_opnd_val (* (set_flags_by_val xs v false) *) xs d v 
+  let xs' = set_cnd_flags xs v n_OF in
+	set_opnd_val xs' d v 
 
 
 (* Apply an Int32 shift opearation from a source to destination registers. *)
-let apply_shift (op:int32 -> int -> int32) (d:opnd) (amt:opnd) (xs:x86_state) =
-	set_opnd_val xs d (op (get_opnd_val xs d) (Int32.to_int (get_opnd_val xs amt)))
+let apply_shift (op:int32 -> int -> int32) (d:opnd) (amt:opnd) (xs:x86_state) (is_arith:bool) =
+  let int_amt = (Int32.to_int (get_opnd_val xs amt)) 
+  and dest = (get_opnd_val xs d) in
+  let v = (op dest int_amt) in
+  let n_OF = (if is_arith then (if int_amt = 1 then false else xs.s_OF)
+                else if ((int_amt = 1) && (get_bit 31 dest <> get_bit 30 dest))
+                     then (get_bit 31 dest) 
+                else xs.s_OF) in
+  let xs' = (if (int_amt <> 0) then (set_cnd_flags xs v n_OF) else xs) in
+	set_opnd_val xs' d v
 
 
 (* Determine if two values have the same sign. *)
@@ -204,19 +213,19 @@ let interpret_insn (xs:x86_state) (i:insn) : x86_state =
 
   (* logic *)
   | Not(d)    -> set_opnd_val xs d (Int32.lognot (get_opnd_val xs d))
-  | And(d, s) -> apply_op Int32.logand s d xs
-  | Or(d, s)  -> apply_op Int32.logor s d xs
-  | Xor(d, s) -> apply_op Int32.logxor s d xs
+  | And(d, s) -> apply_op Int32.logand s d false xs
+  | Or(d, s)  -> apply_op Int32.logor s d false xs
+  | Xor(d, s) -> apply_op Int32.logxor s d false xs
 
   (* bitmanip *)
-  | Sar(d, amt) -> apply_shift Int32.shift_right d amt xs
-  | Shl(d, amt) -> apply_shift Int32.shift_left d amt xs
-  | Shr(d, amt) -> apply_shift Int32.shift_right_logical d amt xs
+  | Sar(d, amt) -> apply_shift Int32.shift_right d amt xs true
+  | Shl(d, amt) -> apply_shift Int32.shift_left d amt xs false
+  | Shr(d, amt) -> apply_shift Int32.shift_right_logical d amt xs false
   | Setb(d, cc) -> if (condition_matches xs cc) 
-                      then (apply_op Int32.logor d (Imm 1l) xs) 
-                   else if ((get_bit 31 (get_opnd_val xs d)))
-                           then (apply_op Int32.logxor d (Imm 1l) xs)
-                        else xs (* TODO - put apply_op so condition codes are set? *)
+                     then (set_opnd_val xs d (Int32.logor (get_opnd_val xs d) 1l))
+                   else if ((get_bit 0 (get_opnd_val xs d)))
+                     then (set_opnd_val xs d (Int32.logxor (get_opnd_val xs d) 1l))
+                   else xs 
 
   (* datamove *) 
   | Lea(d, ind) -> let addr = (compute_indirect xs ind) in
@@ -231,6 +240,7 @@ let interpret_insn (xs:x86_state) (i:insn) : x86_state =
                      and v = (Array.get xs.s_mem (map_addr old_esp)) in
                        set_opnd_val xs (Reg Esp) new_esp;
                        set_opnd_val xs d v
+
   (* controlflow & conds *)
   | Cmp(s1, s2) -> xs (* TODO *)
   | Jmp(s)      -> xs (* TODO *)
