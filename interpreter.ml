@@ -140,12 +140,20 @@ let compute_indirect (xs:x86_state) (i:ind) : int =
   in (map_addr (base +@ ind_scale +@ disp))
 
 
+(* Get the relevant Int32 value from a register. *)
+let get_reg_val (xs:x86_state) (r:reg) : int32 =
+	Array.get xs.s_reg (ind_of_reg r)
+
+(* Set the relevant Int32 value from a register. *)
+let set_reg_val (xs:x86_state) (r:reg) : x86_state =
+	Array.set xs.s_reg (ind_of_reg r) v; xs
+
 (* Get the relevant Int32 value from an operand. *)
 let get_opnd_val (xs:x86_state) (o:opnd) : int32 =
   begin match o with
   | Lbl _ -> raise (Label_value "Tried to get the value of a label")
   | Imm i -> i
-  | Reg r -> Array.get xs.s_reg (ind_of_reg r)
+  | Reg r -> get_reg_val xs r
   | Ind i -> Array.get xs.s_mem (compute_indirect xs i)
   end
 
@@ -155,7 +163,7 @@ let set_opnd_val (xs:x86_state) (o:opnd) (v:int32) : () =
   begin match o with
   | Lbl _ -> raise (Label_value "Tried to set the value of a label")
   | Imm i -> raise (Immediate_value "Tried to set the value of an immediate")
-  | Reg r -> Array.set xs.s_reg (ind_of_reg r) v; xs
+  | Reg r -> set_reg_val xs r
   | Ind i -> Array.set xs.s_mem (compute_indirect xs i) v; xs
   end
 
@@ -179,9 +187,16 @@ let apply_shift (op:int32 -> int -> int32) (d:opnd) (amt:opnd) (xs:x86_state) =
 	set_opnd_val xs d (op (get_opnd_val xs d) (Int32.to_int (get_opnd_val xs amt)))
 
 
-(* Determine if two values have the same sign. *)
+(* Get the 64-bit sign-extensions of two register. *)
+let int64_of_opnd (xs:x86_state) (o:opnd) : int64 = 
+	Int64.of_int32 (get_opnd_val xs o)
 
+(* Get the 32-bit truncation of a 64-bit op. *)
+let int32_of_op (op:int64 -> int64 -> int64) (x:int64) (y:int64) : int32 =
+	Int64.to_int32 (op x y)
 
+(* Return if a 64-bit integer is negative. *)
+let is_neg (x:int64) : bool = Int64.compare x (Int64.zero) < 0
 
 (* TODO deal with setting condition codes? *)
 let interpret_insn (xs:x86_state) (i:insn) : x86_state =
@@ -190,17 +205,30 @@ let interpret_insn (xs:x86_state) (i:insn) : x86_state =
   | Neg(d)     -> let v = Int32.neg (get_opnd_val xs d) in
 									let xs' = set_cnd_flags xs v (Int32.min_int = v) in
 									set_opnd_val xs' d v
-  | Add(d, s)  -> let d64 = Int64.of_int32 (get_opnd_val xs d) in
-									let s64 = Int64.of_int32 (get_opnd_val xs s) in
-									let r64 = Int64.add (Int64.add d64 s64) (Int64.of_int 64) in
-									let r32 = Int64.to_int32 r64 in
-									let is_neg x = Int64.compare x 0 < 0 in
-									let o_flag = not ((is_neg s64) lxor (is_neg d64)) &&
-										(is_neg s64 lxor (r32 <@ 0)) in
+  | Add(d, s)  -> let d64 = int64_of_opnd xs d in
+									let s64 = int64_of_opnd xs s in
+									let r32 = int32_of_op Int64.add d64 s64 in
+									let o_flag =
+										not (is_neg s64 lxor is_neg d64) &&
+											(is_neg s64 lxor (r32 <@ 0)) in
 									let xs' = set_cnd_flags xs r32 o_flag in
 									set_opnd_val xs' d r32
-  | Sub(d, s)  -> xs (* TODO *)
-  | Imul(d, s) -> (* d1 must be a register *) (* "TODO" *) xs
+  | Sub(d, s)  -> let d64 = int64_of_opnd xs d in
+									let s64 = int64_of_opnd xs s in
+									let r32 = int32_of_op Int64.sub d64 s64 in
+									let o_flag =
+										(Int32.min_int = Int64.to_int32 s64) ||
+											((is_neg s64 lxor is_neg d64) &&
+													not (is_neg s64 lxor (r32 <@ 0))) in
+									let xs' = set_cnd_flags xs r32 o_flag in
+									set_opnd_val xs' d r32
+  | Imul(d, s) -> let d64 = Int64.of_int32 (get_reg_val xs r) in
+									let s64 = int64_of_opnd xs s in
+									let r64 = Int64.mul d64 s64 in
+									let r32 = Int64.to_int32 r64 in
+									let o_flag = Int64.of_int32 r32 = r64 in
+									let xs' = set_cnd_flags xs r32 o_flag
+									set_opnd_val xs' d r32
 
   (* logic *)
   | Not(d)    -> set_opnd_val xs d (Int32.lognot (get_opnd_val xs d))
