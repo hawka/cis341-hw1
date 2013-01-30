@@ -151,7 +151,7 @@ let get_opnd_val (xs:x86_state) (o:opnd) : int32 =
 
 
 (* Set the relevant Int32 value from an operand. *)
-let set_opnd_val (xs:x86_state) (o:opnd) (v:int32) : x86_state =
+let set_opnd_val (xs:x86_state) (o:opnd) (v:int32) : () =
   begin match o with
   | Lbl _ -> raise (Label_value "Tried to set the value of a label")
   | Imm i -> raise (Immediate_value "Tried to set the value of an immediate")
@@ -179,19 +179,35 @@ let apply_shift (op:int32 -> int -> int32) (d:opnd) (amt:opnd) (xs:x86_state) =
 	set_opnd_val xs d (op (get_opnd_val xs d) (Int32.to_int (get_opnd_val xs amt)))
 
 
+(* Determine if two values have the same sign. *)
+
+
+
 (* TODO deal with setting condition codes? *)
 let interpret_insn (xs:x86_state) (i:insn) : x86_state =
   begin match i with
   (* arithmetic *)
-  | Neg(d)     -> set_opnd_val xs d (Int32.neg (get_opnd_val xs d))
-  | Add(d, s)  -> xs (* TODO *)
+  | Neg(d)     -> let v = Int32.neg (get_opnd_val xs d) in
+									let xs' = set_cnd_flags xs v (Int32.min_int = v) in
+									set_opnd_val xs' d v
+  | Add(d, s)  -> let d64 = Int64.of_int32 (get_opnd_val xs d) in
+									let s64 = Int64.of_int32 (get_opnd_val xs s) in
+									let r64 = Int64.add (Int64.add d64 s64) (Int64.of_int 64) in
+									let r32 = Int64.to_int32 r64 in
+									let is_neg x = Int64.compare x 0 < 0 in
+									let o_flag = not ((is_neg s64) lxor (is_neg d64)) &&
+										(is_neg s64 lxor (r32 <@ 0)) in
+									let xs' = set_cnd_flags xs r32 o_flag in
+									set_opnd_val xs' d r32
   | Sub(d, s)  -> xs (* TODO *)
   | Imul(d, s) -> (* d1 must be a register *) (* "TODO" *) xs
+
   (* logic *)
   | Not(d)    -> set_opnd_val xs d (Int32.lognot (get_opnd_val xs d))
   | And(d, s) -> apply_op Int32.logand s d xs
   | Or(d, s)  -> apply_op Int32.logor s d xs
   | Xor(d, s) -> apply_op Int32.logxor s d xs
+
   (* bitmanip *)
   | Sar(d, amt) -> apply_shift Int32.shift_right d amt xs
   | Shl(d, amt) -> apply_shift Int32.shift_left d amt xs
@@ -201,11 +217,13 @@ let interpret_insn (xs:x86_state) (i:insn) : x86_state =
                    else if ((get_bit 31 (get_opnd_val xs d)))
                            then (apply_op Int32.logxor d (Imm 1l) xs)
                         else xs (* TODO - put apply_op so condition codes are set? *)
+
   (* datamove *) 
   | Lea(d, ind) -> xs (* TODO *)
   | Mov(d, s)   -> xs (* TODO *)
   | Push(s)     -> xs (* TODO *)
   | Pop(d)      -> xs (* TODO *)
+
   (* controlflow & conds *)
   | Cmp(s1, s2) -> xs (* TODO *)
   | Jmp(s)      -> xs (* TODO *)
