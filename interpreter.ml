@@ -318,10 +318,6 @@ and interpret_insns (xs:x86_state) (lbl_map:insn_block LblMap.t)
     end
   end
 
-(* find the mapped insn_block.insn_list for lbl l in lbl_map *)
-(* run helper function to deal with contents of insn_block and give us 
-the last insn which should be jump or ret. if not, EXCEPTION *)
-(* parse that.. if ret, ret up. if jmp, call find_lbl lbl_map newlabel *)
 and interpret_block (xs:x86_state) (lbl_map:insn_block LblMap.t)
     (l:lbl) : x86_state =
   let next_block = LblMap.find l lbl_map in 
