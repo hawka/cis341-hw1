@@ -53,12 +53,10 @@ let mem_bot : int32 =               (* First addressable memory location *)
 *)
 let map_addr (addr:int32) : int =
   let addr_i : int = Int32.to_int (addr -@ 0xfffff000l) in
-  if (addr <=@ Int32.abs mem_top) && (addr >=@ Int32.abs mem_bot) && addr_i mod 4 = 0 then
+  if (addr <=@ mem_top) && (addr >=@ mem_bot) && addr_i mod 4 = 0 then
     (addr_i / 4)
   else
-    failwith ("mem_top=" ^ (Int32.to_string mem_top) ^ ", mem_bot=" ^
-								 (Int32.to_string mem_bot) ^ ", addr=" ^ (Int32.to_string addr))
-(*raise (X86_segmentation_fault "Invalid memory address")*)
+		raise (X86_segmentation_fault "Invalid memory address")
 
 type x86_state = {
     s_mem : int32 array;    (* 1024 32-bit words -- the heap *)
