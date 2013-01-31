@@ -211,7 +211,6 @@ let is_neg (x:int64) : bool = Int64.compare x (Int64.zero) < 0
 let xor (b1:bool) (b2:bool) : bool =
 	(b1 && not b2) || (b2 && not b1)
 
-(* TODO deal with setting condition codes? *)
 let interpret_insn (xs:x86_state) (i:insn) : x86_state =
   begin match i with
   (* arithmetic *)
@@ -277,7 +276,7 @@ let interpret_insn (xs:x86_state) (i:insn) : x86_state =
   | Cmp(s1, s2) -> xs (* TODO *)
   | Jmp(s)      -> xs (* TODO *)
   | Call(s)     -> xs (* TODO *)
-  | Ret         -> xs (* TODO *) 
+  | Ret         -> xs (* TODO *)
   | J(cc, clbl) -> xs (* TODO *)
   end
 
@@ -287,11 +286,14 @@ let rec find_lbl (lbl_map:insn_block LblMap.t) (l:lbl) : unit =
   (* run helper function to deal with contents of insn_block and give us 
   the last insn which should be jump or ret. if not, EXCEPTION *)
   (* parse that.. if ret, ret up. if jmp, call find_lbl lbl_map newlabel *)
-	failwith "TODO"
+  let next_block = LblMap.find l lbl_map in 
+    let next_insns = next_block.insns in 
+  failwith "TODO"
 
 let interpret (code:insn_block list) (xs:x86_state) (l:lbl) : unit =
-(*  let lbl_map = mk_lbl_map code in*)
-	failwith "TODO"
+  let lbl_map = mk_lbl_map code in
+    find_lbl lbl_map l
+  (* TODO finish writing this *)
   
 
       
