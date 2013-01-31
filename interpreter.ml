@@ -273,14 +273,7 @@ let interpret_insn (xs:x86_state) (i:insn) : x86_state =
                        set_opnd_val xs d v
 
   (* controlflow & conds *)
-  | Cmp(s1, s2) -> let s1_64 = int64_of_opnd xs s1 in
-                   let s2_64 = int64_of_opnd xs s2 in
-                   let r32 = int32_of_op Int64.sub s1_64 s2_64 in
-                   let o_flag =
-                     (Int32.min_int = Int64.to_int32 s2_64) ||
-                     ((is_neg s2_64 lxor is_neg s1_64) &&
-                     not (is_neg s1_64 lxor (r32 <@ 0))) in
-                   set_cnd_flags xs r32 o_flag
+  | Cmp(s1, s2) -> xs (* TODO *)
   | Jmp(s)      -> xs (* TODO *)
   | Call(s)     -> xs (* TODO *)
   | Ret         -> xs (* TODO *)
