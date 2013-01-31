@@ -18,6 +18,7 @@ exception X86_segmentation_fault of string
 
 exception Label_value of string
 exception Immediate_value of string
+exception Dont_pull_that_shit of string
 
 (* Interpret the registers as indices into the register file array *)
 let eaxi = 0
@@ -55,7 +56,7 @@ let map_addr (addr:int32) : int =
   if (addr <=@ mem_top) && (addr >=@ (mem_top +@ mem_bot)) && addr_i mod 4 = 0 then
     (addr_i / 4)
   else
-    raise (X86_segmentation_fault "Invalid memory address")
+    failwith (*raise (X86_segmentation_fault "Invalid memory address")*)
 
 type x86_state = {
     s_mem : int32 array;    (* 1024 32-bit words -- the heap *)
@@ -222,9 +223,17 @@ let do_subtract (set_regs:bool) (xs:x86_state) (d:opnd) (s:opnd) : x86_state =
 					not (xor (is_neg s64) (r32 <@ 0l))) in
 	let xs' = if set_regs then set_opnd_val xs d r32 else xs in
 	set_cnd_flags xs' r32 o_flag
+
+(* Get the label form an operand or throw an error. *)
+let get_lbl (o:opnd) : lbl =
+	begin match o with
+	| Lbl l -> l
+	| _     -> raise (Dont_pull_that_shit "Only labels are allowed here")
+	end
 	
 
-let interpret_insn (xs:x86_state) (i:insn) : x86_state =
+let rec interpret_insn (xs:x86_state) (lbl_map:insn_block LblMap.t)
+		(i:insn) : x86_state =
   begin match i with
   (* arithmetic *)
   | Neg(d)     -> let v = Int32.neg (get_opnd_val xs d) in
@@ -243,7 +252,7 @@ let interpret_insn (xs:x86_state) (i:insn) : x86_state =
 									let s64 = int64_of_opnd xs s in
 									let r64 = Int64.mul d64 s64 in
 									let r32 = Int64.to_int32 r64 in
-									let o_flag = Int64.of_int32 r32 = r64 in
+									let o_flag = Int64.of_int32 r32 <> r64 in
 									let xs' = set_cnd_flags xs r32 o_flag in
 									set_reg_val xs' d r32
 
@@ -274,31 +283,49 @@ let interpret_insn (xs:x86_state) (i:insn) : x86_state =
   | Pop(d)      -> let old_esp = (get_opnd_val xs (Reg Esp)) in
                      let new_esp = (old_esp +@ 4l)
                      and v = (Array.get xs.s_mem (map_addr old_esp)) in
-                       set_opnd_val xs (Reg Esp) new_esp;
-                       set_opnd_val xs d v
+                     let  xs' = set_opnd_val xs (Reg Esp) new_esp in
+                     set_opnd_val xs' d v
 
   (* controlflow & conds *)
   | Cmp(s1, s2) -> do_subtract false xs s1 s2
-  | Jmp(s)      -> xs (* TODO *)
-  | Call(s)     -> xs (* TODO *)
-  | Ret         -> xs (* TODO *)
-  | J(cc, clbl) -> xs (* TODO *)
+  | Jmp(s)      -> interpret_block xs lbl_map (get_lbl s)
+  | Call(s)     -> let new_esp = (get_opnd_val xs (Reg Esp)) -@ 4l in
+									 let xs' = set_opnd_val xs (Reg Esp) new_esp in
+									 interpret_block xs' lbl_map (get_lbl s)
+  | Ret         -> set_opnd_val xs (Reg Esp) ((get_opnd_val xs (Reg Esp)) +@ 4l)
+  | J(cc, clbl) ->
+		if condition_matches xs cc then interpret_block xs lbl_map clbl else xs
   end
 
+and interpret_insns (xs:x86_state) (lbl_map:insn_block LblMap.t)
+		(insns:insn list) : x86_state = 
+	begin match insns with
+	| []  -> raise (Dont_pull_that_shit "Y u no have code: code block can't be empty")
+	| [h] ->
+		begin match h with
+		| Jmp(s)  -> interpret_insn xs lbl_map h
+		| Ret     -> interpret_insn xs lbl_map h
+		| J(c, l) -> interpret_insn xs lbl_map h
+		| _       ->
+			raise (Dont_pull_that_shit "Code block must end with Jmp, Ret, or J")
+		end
+	| h::t -> interpret_insns (interpret_insn xs lbl_map h) lbl_map t
+	end
 
 (* find the mapped insn_block.insn_list for lbl l in lbl_map *)
 (* run helper function to deal with contents of insn_block and give us 
 the last insn which should be jump or ret. if not, EXCEPTION *)
 (* parse that.. if ret, ret up. if jmp, call find_lbl lbl_map newlabel *)
-and rec interpret_lbl_block (lbl_map:insn_block LblMap.t) (l:lbl) : unit =
+and interpret_block (xs:x86_state) (lbl_map:insn_block LblMap.t)
+		(l:lbl) : x86_state =
   let next_block = LblMap.find l lbl_map in 
-  let next_insns = next_block.insns in
-   
+	  interpret_insns xs lbl_map next_block.insns
+
 
 
 let interpret (code:insn_block list) (xs:x86_state) (l:lbl) : unit =
   let lbl_map = mk_lbl_map code in
-    interpret_lbl_block lbl_map l
+    interpret_block xs lbl_map l; ()
 
       
 let run (code:insn_block list) : int32 =
