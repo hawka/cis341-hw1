@@ -56,7 +56,7 @@ let map_addr (addr:int32) : int =
   if (addr <=@ mem_top) && (addr >=@ mem_bot) && addr_i mod 4 = 0 then
     (addr_i / 4)
   else
-		raise (X86_segmentation_fault "Invalid memory address")
+    raise (X86_segmentation_fault "Invalid memory address")
 
 type x86_state = {
     s_mem : int32 array;    (* 1024 32-bit words -- the heap *)
@@ -143,11 +143,11 @@ let compute_indirect (xs:x86_state) (i:ind) : int32 =
 
 (* Get the relevant Int32 value from a register. *)
 let get_reg_val (xs:x86_state) (r:reg) : int32 =
-	Array.get xs.s_reg (ind_of_reg r)
+  Array.get xs.s_reg (ind_of_reg r)
 
 (* Set the relevant Int32 value from a register. *)
 let set_reg_val (xs:x86_state) (r:reg) (v:int32): x86_state =
-	Array.set xs.s_reg (ind_of_reg r) v; xs
+  Array.set xs.s_reg (ind_of_reg r) v; xs
 
 (* Get the relevant Int32 value from an operand. *)
 let get_opnd_val (xs:x86_state) (o:opnd) : int32 =
@@ -179,9 +179,9 @@ let set_cnd_flags (xs:x86_state) (v:int32) (o:bool) : x86_state =
 
 (* Apply a binary Int32 opearation from a source to destination registers. *)
 let apply_op (op:int32 -> int32 -> int32) (s:opnd) (d:opnd) (n_OF:bool) (xs:x86_state) =
-	let v = op (get_opnd_val xs d) (get_opnd_val xs s) in
+  let v = op (get_opnd_val xs d) (get_opnd_val xs s) in
   let xs' = set_cnd_flags xs v n_OF in
-	set_opnd_val xs' d v 
+  set_opnd_val xs' d v 
 
 
 (* Apply an Int32 shift opearation from a source to destination registers. *)
@@ -194,67 +194,67 @@ let apply_shift (op:int32 -> int -> int32) (d:opnd) (amt:opnd) (xs:x86_state) (i
                      then (get_bit 31 dest) 
                 else xs.s_OF) in
   let xs' = (if (int_amt <> 0) then (set_cnd_flags xs v n_OF) else xs) in
-	set_opnd_val xs' d v
+  set_opnd_val xs' d v
 
 
 (* Get the 64-bit sign-extensions of two register. *)
 let int64_of_opnd (xs:x86_state) (o:opnd) : int64 = 
-	Int64.of_int32 (get_opnd_val xs o)
+  Int64.of_int32 (get_opnd_val xs o)
 
 (* Get the 32-bit truncation of a 64-bit op. *)
 let int32_of_op (op:int64 -> int64 -> int64) (x:int64) (y:int64) : int32 =
-	Int64.to_int32 (op x y)
+  Int64.to_int32 (op x y)
 
 (* Return if a 64-bit integer is negative. *)
 let is_neg (x:int64) : bool = Int64.compare x (Int64.zero) < 0
 
 (* xor *)
 let xor (b1:bool) (b2:bool) : bool =
-	(b1 && not b2) || (b2 && not b1)
+  (b1 && not b2) || (b2 && not b1)
 
 (* subtract *)
 let do_subtract (set_regs:bool) (xs:x86_state) (d:opnd) (s:opnd) : x86_state =
   let d64 = int64_of_opnd xs d in
-	let s64 = int64_of_opnd xs s in
-	let r32 = int32_of_op Int64.sub d64 s64 in
-	let o_flag =
-		(Int32.min_int = Int64.to_int32 s64) ||
-			((xor (is_neg s64) (is_neg d64)) &&
-					not (xor (is_neg s64) (r32 <@ 0l))) in
-	let xs' = if set_regs then set_opnd_val xs d r32 else xs in
-	set_cnd_flags xs' r32 o_flag
+  let s64 = int64_of_opnd xs s in
+  let r32 = int32_of_op Int64.sub d64 s64 in
+  let o_flag =
+    (Int32.min_int = Int64.to_int32 s64) ||
+      ((xor (is_neg s64) (is_neg d64)) &&
+          not (xor (is_neg s64) (r32 <@ 0l))) in
+  let xs' = if set_regs then set_opnd_val xs d r32 else xs in
+  set_cnd_flags xs' r32 o_flag
 
 (* Get the label form an operand or throw an error. *)
 let get_lbl (o:opnd) : lbl =
-	begin match o with
-	| Lbl l -> l
-	| _     -> raise (Dont_pull_that_shit "Only labels are allowed here")
-	end
-	
+  begin match o with
+  | Lbl l -> l
+  | _     -> raise (Dont_pull_that_shit "Only labels are allowed here")
+  end
+  
 
 let rec interpret_insn (xs:x86_state) (lbl_map:insn_block LblMap.t)
-		(i:insn) : x86_state =
+    (i:insn) : x86_state =
   begin match i with
   (* arithmetic *)
   | Neg(d)     -> let v = Int32.neg (get_opnd_val xs d) in
-									let xs' = set_cnd_flags xs v (Int32.min_int = v) in
-									set_opnd_val xs' d v
+                  let xs' = set_cnd_flags xs v (Int32.min_int = v) in
+                  set_opnd_val xs' d v
   | Add(d, s)  -> let d64 = int64_of_opnd xs d in
-									let s64 = int64_of_opnd xs s in
-									let r32 = int32_of_op Int64.add d64 s64 in
-									let o_flag =
-										not (xor (is_neg s64) (is_neg d64)) &&
-											(xor (is_neg s64) (r32 <@ 0l)) in
-									let xs' = set_cnd_flags xs r32 o_flag in
-									set_opnd_val xs' d r32
+                  let s64 = int64_of_opnd xs s in
+                  let r32 = int32_of_op Int64.add d64 s64 in
+                  let o_flag =
+                    not (xor (is_neg s64) (is_neg d64)) &&
+                      (xor (is_neg s64) (r32 <@ 0l)) in
+                  let xs' = set_cnd_flags xs r32 o_flag in
+                  set_opnd_val xs' d r32
   | Sub(d, s)  -> do_subtract true xs d s
   | Imul(d, s) -> let d64 = Int64.of_int32 (get_reg_val xs d) in
-									let s64 = int64_of_opnd xs s in
-									let r64 = Int64.mul d64 s64 in
-									let r32 = Int64.to_int32 r64 in
-									let o_flag = Int64.of_int32 r32 <> r64 in
-									let xs' = set_cnd_flags xs r32 o_flag in
-									set_reg_val xs' d r32
+                  let s64 = int64_of_opnd xs s in
+                  let r64 = Int64.mul d64 s64 in
+                  let r32 = Int64.to_int32 r64 in
+                  let o_flag = Int64.of_int32 r32 <> r64 in
+                  let xs' = set_cnd_flags xs r32 o_flag in
+                  set_reg_val xs' d r32
 
   (* logic *)
   | Not(d)    -> set_opnd_val xs d (Int32.lognot (get_opnd_val xs d))
@@ -290,41 +290,41 @@ let rec interpret_insn (xs:x86_state) (lbl_map:insn_block LblMap.t)
   | Cmp(s1, s2) -> do_subtract false xs s1 s2
   | Jmp(s)      -> interpret_block xs lbl_map (get_lbl s)
   | Call(s)     -> let new_esp = (get_opnd_val xs (Reg Esp)) -@ 4l in
-									 let xs' = set_opnd_val xs (Reg Esp) new_esp in
-									 interpret_block xs' lbl_map (get_lbl s)
+                   let xs' = set_opnd_val xs (Reg Esp) new_esp in
+                   interpret_block xs' lbl_map (get_lbl s)
   | Ret         -> set_opnd_val xs (Reg Esp) ((get_opnd_val xs (Reg Esp)) +@ 4l)
   | J(cc, clbl) ->
-		if condition_matches xs cc then interpret_block xs lbl_map clbl else xs
+    if condition_matches xs cc then interpret_block xs lbl_map clbl else xs
   end
 
 and interpret_insns (xs:x86_state) (lbl_map:insn_block LblMap.t)
-		(insns:insn list) : x86_state = 
-	begin match insns with
-	| []  -> raise (Dont_pull_that_shit "Y u no have code: code block can't be empty")
-	| [h] ->
-		begin match h with
-		| Jmp(s)  -> interpret_insn xs lbl_map h
-		| Ret     -> interpret_insn xs lbl_map h
-		| J(c, l) -> interpret_insn xs lbl_map h
-		| _       ->
-			raise (Dont_pull_that_shit "Code block must end with Jmp, Ret, or J")
-		end
-	| h::t -> let xs' = interpret_insn xs lbl_map h in
-		begin match h with
-		| Jmp(_)  -> xs'
-		| J(c, _) -> if condition_matches xs c then xs' else interpret_insns xs' lbl_map t
-		| _       -> interpret_insns xs' lbl_map t
-		end
-	end
+    (insns:insn list) : x86_state = 
+  begin match insns with
+  | []  -> raise (Dont_pull_that_shit "Y u no have code: code block can't be empty")
+  | [h] ->
+    begin match h with
+    | Jmp(s)  -> interpret_insn xs lbl_map h
+    | Ret     -> interpret_insn xs lbl_map h
+    | J(c, l) -> interpret_insn xs lbl_map h
+    | _       ->
+      raise (Dont_pull_that_shit "Code block must end with Jmp, Ret, or J")
+    end
+  | h::t -> let xs' = interpret_insn xs lbl_map h in
+    begin match h with
+    | Jmp(_)  -> xs'
+    | J(c, _) -> if condition_matches xs c then xs' else interpret_insns xs' lbl_map t
+    | _       -> interpret_insns xs' lbl_map t
+    end
+  end
 
 (* find the mapped insn_block.insn_list for lbl l in lbl_map *)
 (* run helper function to deal with contents of insn_block and give us 
 the last insn which should be jump or ret. if not, EXCEPTION *)
 (* parse that.. if ret, ret up. if jmp, call find_lbl lbl_map newlabel *)
 and interpret_block (xs:x86_state) (lbl_map:insn_block LblMap.t)
-		(l:lbl) : x86_state =
+    (l:lbl) : x86_state =
   let next_block = LblMap.find l lbl_map in 
-	  interpret_insns xs lbl_map next_block.insns
+    interpret_insns xs lbl_map next_block.insns
 
 
 
