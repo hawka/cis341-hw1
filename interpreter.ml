@@ -211,6 +211,19 @@ let is_neg (x:int64) : bool = Int64.compare x (Int64.zero) < 0
 let xor (b1:bool) (b2:bool) : bool =
 	(b1 && not b2) || (b2 && not b1)
 
+(* subtract *)
+let do_subtract (set_regs:bool) (xs:x86_state) (d:opnd) (s:opnd) : x86_state =
+  let d64 = int64_of_opnd xs d in
+	let s64 = int64_of_opnd xs s in
+	let r32 = int32_of_op Int64.sub d64 s64 in
+	let o_flag =
+		(Int32.min_int = Int64.to_int32 s64) ||
+			((xor (is_neg s64) (is_neg d64)) &&
+					not (xor (is_neg s64) (r32 <@ 0l))) in
+	let xs' = if set_regs then set_opnd_val xs' d r32 else xs in
+	set_cnd_flags xs' r32 o_flag
+	
+
 let interpret_insn (xs:x86_state) (i:insn) : x86_state =
   begin match i with
   (* arithmetic *)
@@ -225,15 +238,7 @@ let interpret_insn (xs:x86_state) (i:insn) : x86_state =
 											(xor (is_neg s64) (r32 <@ 0l)) in
 									let xs' = set_cnd_flags xs r32 o_flag in
 									set_opnd_val xs' d r32
-  | Sub(d, s)  -> let d64 = int64_of_opnd xs d in
-									let s64 = int64_of_opnd xs s in
-									let r32 = int32_of_op Int64.sub d64 s64 in
-									let o_flag =
-										(Int32.min_int = Int64.to_int32 s64) ||
-											((xor (is_neg s64) (is_neg d64)) &&
-													not (xor (is_neg s64) (r32 <@ 0l))) in
-									let xs' = set_cnd_flags xs r32 o_flag in
-									set_opnd_val xs' d r32
+  | Sub(d, s)  -> do_subtract true xs d s
   | Imul(d, s) -> let d64 = Int64.of_int32 (get_reg_val xs d) in
 									let s64 = int64_of_opnd xs s in
 									let r64 = Int64.mul d64 s64 in
@@ -273,7 +278,7 @@ let interpret_insn (xs:x86_state) (i:insn) : x86_state =
                        set_opnd_val xs d v
 
   (* controlflow & conds *)
-  | Cmp(s1, s2) -> xs (* TODO *)
+  | Cmp(s1, s2) -> do_subtract false xs d s
   | Jmp(s)      -> xs (* TODO *)
   | Call(s)     -> xs (* TODO *)
   | Ret         -> xs (* TODO *)
