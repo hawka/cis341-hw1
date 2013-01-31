@@ -208,8 +208,8 @@ let int32_of_op (op:int64 -> int64 -> int64) (x:int64) (y:int64) : int32 =
 let is_neg (x:int64) : bool = Int64.compare x (Int64.zero) < 0
 
 (* Return (NOT XOR) AND (XOR). *)
-(*let both_neither (b1:bool * bool) (b2:bool * bool) : bool =
-	match (b1, b2) with ((b1a, b1b), (b2a, b2b)) ->*)
+let xor (b1:bool) (b2:bool) : bool =
+	(b1 && not b2) || (b2 && not b1)
 
 let interpret_insn (xs:x86_state) (i:insn) : x86_state =
   begin match i with
@@ -221,8 +221,8 @@ let interpret_insn (xs:x86_state) (i:insn) : x86_state =
 									let s64 = int64_of_opnd xs s in
 									let r32 = int32_of_op Int64.add d64 s64 in
 									let o_flag =
-										not (is_neg s64 lxor is_neg d64) &&
-											(is_neg s64 lxor (r32 <@ 0)) in
+										not (xor (is_neg s64) (is_neg d64)) &&
+											(xor (is_neg s64) (r32 <@ 0l)) in
 									let xs' = set_cnd_flags xs r32 o_flag in
 									set_opnd_val xs' d r32
   | Sub(d, s)  -> let d64 = int64_of_opnd xs d in
@@ -230,11 +230,11 @@ let interpret_insn (xs:x86_state) (i:insn) : x86_state =
 									let r32 = int32_of_op Int64.sub d64 s64 in
 									let o_flag =
 										(Int32.min_int = Int64.to_int32 s64) ||
-											((is_neg s64 lxor is_neg d64) &&
-													not (is_neg s64 lxor (r32 <@ 0))) in
+											((xor (is_neg s64) (is_neg d64)) &&
+													not (xor (is_neg s64) (r32 <@ 0l))) in
 									let xs' = set_cnd_flags xs r32 o_flag in
 									set_opnd_val xs' d r32
-  | Imul(d, s) -> let d64 = Int64.of_int32 (get_reg_val xs r) in
+  | Imul(d, s) -> let d64 = Int64.of_int32 (get_reg_val xs d) in
 									let s64 = int64_of_opnd xs s in
 									let r64 = Int64.mul d64 s64 in
 									let r32 = Int64.to_int32 r64 in
