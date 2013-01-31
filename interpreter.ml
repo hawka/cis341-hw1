@@ -286,20 +286,19 @@ let interpret_insn (xs:x86_state) (i:insn) : x86_state =
   end
 
 
-let rec find_lbl (lbl_map:insn_block LblMap.t) (l:lbl) : unit =
-  (* find the mapped insn_block.insn_list for lbl l in lbl_map *)
-  (* run helper function to deal with contents of insn_block and give us 
-  the last insn which should be jump or ret. if not, EXCEPTION *)
-  (* parse that.. if ret, ret up. if jmp, call find_lbl lbl_map newlabel *)
+(* find the mapped insn_block.insn_list for lbl l in lbl_map *)
+(* run helper function to deal with contents of insn_block and give us 
+the last insn which should be jump or ret. if not, EXCEPTION *)
+(* parse that.. if ret, ret up. if jmp, call find_lbl lbl_map newlabel *)
+and rec interpret_lbl_block (lbl_map:insn_block LblMap.t) (l:lbl) : unit =
   let next_block = LblMap.find l lbl_map in 
-    let next_insns = next_block.insns in 
-  failwith "TODO"
+  let next_insns = next_block.insns in
+   
+
 
 let interpret (code:insn_block list) (xs:x86_state) (l:lbl) : unit =
   let lbl_map = mk_lbl_map code in
-    find_lbl lbl_map l
-  (* TODO finish writing this *)
-  
+    interpret_lbl_block lbl_map l
 
       
 let run (code:insn_block list) : int32 =
