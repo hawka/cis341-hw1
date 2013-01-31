@@ -12,7 +12,8 @@ let (<@) a b = (Int32.compare a b) < 0
 let (<=@) a b = (Int32.compare a b) <= 0
 let (>@) a b = (Int32.compare a b) > 0
 let (>=@) a b = (Int32.compare a b) >= 0
-let (<@@) a b = (Int64.compare a b) < 0
+let 64to32 = Int64.to_int32
+let 32to64 = Int64.of_int32
 
 exception X86_segmentation_fault of string
 
@@ -199,11 +200,11 @@ let apply_shift (op:int32 -> int -> int32) (d:opnd) (amt:opnd) (xs:x86_state) (i
 
 (* Get the 64-bit sign-extensions of two register. *)
 let int64_of_opnd (xs:x86_state) (o:opnd) : int64 = 
-  Int64.of_int32 (get_opnd_val xs o)
+  32to64 (get_opnd_val xs o)
 
 (* Get the 32-bit truncation of a 64-bit op. *)
 let int32_of_op (op:int64 -> int64 -> int64) (x:int64) (y:int64) : int32 =
-  Int64.to_int32 (op x y)
+  64to32 (op x y)
 
 (* Return if a 64-bit integer is negative. *)
 let is_neg (x:int64) : bool = Int64.compare x (Int64.zero) < 0
@@ -218,7 +219,7 @@ let do_subtract (set_regs:bool) (xs:x86_state) (d:opnd) (s:opnd) : x86_state =
   let s64 = int64_of_opnd xs s in
   let r32 = int32_of_op Int64.sub d64 s64 in
   let o_flag =
-    (Int32.min_int = Int64.to_int32 s64) ||
+    (Int32.min_int = 64to32 s64) ||
       ((xor (is_neg s64) (is_neg d64)) &&
           not (xor (is_neg s64) (r32 <@ 0l))) in
   let xs' = if set_regs then set_opnd_val xs d r32 else xs in
@@ -248,11 +249,11 @@ let rec interpret_insn (xs:x86_state) (lbl_map:insn_block LblMap.t)
                   let xs' = set_cnd_flags xs r32 o_flag in
                   set_opnd_val xs' d r32
   | Sub(d, s)  -> do_subtract true xs d s
-  | Imul(d, s) -> let d64 = Int64.of_int32 (get_reg_val xs d) in
+  | Imul(d, s) -> let d64 = 32to64 (get_reg_val xs d) in
                   let s64 = int64_of_opnd xs s in
                   let r64 = Int64.mul d64 s64 in
-                  let r32 = Int64.to_int32 r64 in
-                  let o_flag = Int64.of_int32 r32 <> r64 in
+                  let r32 = 64to32 r64 in
+                  let o_flag = 32to64 r32 <> r64 in
                   let xs' = set_cnd_flags xs r32 o_flag in
                   set_reg_val xs' d r32
 
