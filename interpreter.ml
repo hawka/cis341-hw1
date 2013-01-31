@@ -220,7 +220,7 @@ let do_subtract (set_regs:bool) (xs:x86_state) (d:opnd) (s:opnd) : x86_state =
 		(Int32.min_int = Int64.to_int32 s64) ||
 			((xor (is_neg s64) (is_neg d64)) &&
 					not (xor (is_neg s64) (r32 <@ 0l))) in
-	let xs' = if set_regs then set_opnd_val xs' d r32 else xs in
+	let xs' = if set_regs then set_opnd_val xs d r32 else xs in
 	set_cnd_flags xs' r32 o_flag
 	
 
@@ -278,7 +278,7 @@ let interpret_insn (xs:x86_state) (i:insn) : x86_state =
                        set_opnd_val xs d v
 
   (* controlflow & conds *)
-  | Cmp(s1, s2) -> do_subtract false xs d s
+  | Cmp(s1, s2) -> do_subtract false xs s1 s2
   | Jmp(s)      -> xs (* TODO *)
   | Call(s)     -> xs (* TODO *)
   | Ret         -> xs (* TODO *)
