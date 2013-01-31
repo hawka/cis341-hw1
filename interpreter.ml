@@ -207,7 +207,7 @@ let int32_of_op (op:int64 -> int64 -> int64) (x:int64) (y:int64) : int32 =
 (* Return if a 64-bit integer is negative. *)
 let is_neg (x:int64) : bool = Int64.compare x (Int64.zero) < 0
 
-(* Return (NOT XOR) AND (XOR). *)
+(* xor *)
 let xor (b1:bool) (b2:bool) : bool =
 	(b1 && not b2) || (b2 && not b1)
 
