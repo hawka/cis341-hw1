@@ -11,20 +11,20 @@ Known issues with your implementation:
 Course Project Feedback:
 ------------------------
 
-1.  How much time did it take to complete this project?
+1.  How much time did it take to complete this project? 15
 
 
-2. How effective was this project? [0-10]: 
+2. How effective was this project? [0-10]: 7.5
 
     0 = learned nothing
    10 = highly educational
 
-3. How engaging was this project? [0-10]:
+3. How engaging was this project? [0-10]: 7
 
     0 = tedious and boring
    10 = fun and engaging
 
-4. How difficult was this project? [0-10]:
+4. How difficult was this project? [0-10]: 5
 
     0 = piece of cake
    10 = extremely hard
