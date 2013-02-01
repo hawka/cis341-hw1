@@ -310,11 +310,15 @@ and interpret_insns (xs:x86_state) (lbl_map:insn_block LblMap.t)
     | _       ->
       raise (Dont_pull_that_shit "Code block must end with Jmp, Ret, or J")
     end
-  | h::t -> let xs' = interpret_insn xs lbl_map h in
+  | h::t ->
     begin match h with
-    | Jmp(_)  -> xs'
-    | J(c, _) -> if condition_matches xs c then xs' else interpret_insns xs' lbl_map t
-    | _       -> interpret_insns xs' lbl_map t
+    | Jmp(_)  -> interpret_insn xs lbl_map h
+    | J(c, _) ->
+      if condition_matches xs c then
+        interpret_insn xs lbl_map h
+      else
+        interpret_insns (interpret_insn xs lbl_map h) lbl_map t
+    | _       -> interpret_insns (interpret_insn xs lbl_map h) lbl_map t
     end
   end
 
