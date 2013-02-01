@@ -331,7 +331,8 @@ and interpret_block (xs:x86_state) (lbl_map:insn_block LblMap.t)
 
 let interpret (code:insn_block list) (xs:x86_state) (l:lbl) : unit =
   let lbl_map = mk_lbl_map code in
-    interpret_block xs lbl_map l; ()
+  let _ = interpret_block xs lbl_map l in
+  ()
 
       
 let run (code:insn_block list) : int32 =
