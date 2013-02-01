@@ -19,7 +19,7 @@ exception X86_segmentation_fault of string
 
 exception Label_value of string
 exception Immediate_value of string
-exception Dont_pull_that_shit of string
+exception Insn_block_format of string
 
 (* Interpret the registers as indices into the register file array *)
 let eaxi = 0
@@ -229,7 +229,7 @@ let do_subtract (set_regs:bool) (xs:x86_state) (d:opnd) (s:opnd) : x86_state =
 let get_lbl (o:opnd) : lbl =
   begin match o with
   | Lbl l -> l
-  | _     -> raise (Dont_pull_that_shit "Only labels are allowed here")
+  | _     -> raise (Insn_block_format "Only labels are allowed here")
   end
   
 
@@ -301,14 +301,14 @@ let rec interpret_insn (xs:x86_state) (lbl_map:insn_block LblMap.t)
 and interpret_insns (xs:x86_state) (lbl_map:insn_block LblMap.t)
     (insns:insn list) : x86_state = 
   begin match insns with
-  | []  -> raise (Dont_pull_that_shit "Y u no have code: code block can't be empty")
+  | []  -> raise (Insn_block_format "Y u no have code: code block can't be empty")
   | [h] ->
     begin match h with
     | Jmp(s)  -> interpret_insn xs lbl_map h
     | Ret     -> interpret_insn xs lbl_map h
     | J(c, l) -> interpret_insn xs lbl_map h
     | _       ->
-      raise (Dont_pull_that_shit "Code block must end with Jmp, Ret, or J")
+      raise (Insn_block_format "Code block must end with Jmp, Ret, or J")
     end
   | h::t ->
     begin match h with
